@@ -1,19 +1,18 @@
-import { useContext, useEffect, useMemo } from "react";
-import { useDispatch, useSelector } from "react-redux";
+import { useEffect, useMemo } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import styled from "styled-components";
-import { CustomScrollbarDiv, defaultBorderRadius, vscInputBackground } from ".";
-import { IdeMessengerContext } from "../context/IdeMessenger";
+import { CustomScrollbarDiv, defaultBorderRadius } from ".";
 import { LastSessionProvider } from "../context/LastSessionContext";
 import { useWebviewListener } from "../hooks/useWebviewListener";
-import { useConfigError } from "../redux/hooks";
+import { useAppDispatch, useAppSelector } from "../redux/hooks";
+import { setEditStatus, focusEdit } from "../redux/slices/editModeState";
+import { setDialogMessage, setShowDialog } from "../redux/slices/uiSlice";
 import {
-  setEditDone,
-  setEditStatus,
-  startEditMode,
-} from "../redux/slices/editModeState";
-import { setShowDialog, updateApplyState } from "../redux/slices/uiStateSlice";
-import { RootState } from "../redux/store";
+  addCodeToEdit,
+  updateApplyState,
+  setMode,
+  newSession,
+} from "../redux/slices/sessionSlice";
 import { getFontSize, isMetaEquivalentKeyPressed } from "../util";
 import { getLocalStorage, setLocalStorage } from "../util/localStorage";
 import { ROUTES } from "../util/navigation";
@@ -21,6 +20,10 @@ import TextDialog from "./dialogs";
 import Footer from "./Footer";
 import { isNewUserOnboarding, useOnboardingCard } from "./OnboardingCard";
 import PostHogPageView from "./PosthogPageView";
+import AccountDialog from "./AccountDialog";
+import { AuthProvider } from "../context/Auth";
+import useHistory from "../hooks/useHistory";
+import { exitEditMode } from "../redux/thunks";
 
 const LayoutTopDiv = styled(CustomScrollbarDiv)`
   height: 100%;
@@ -46,64 +49,34 @@ const GridDiv = styled.div`
   overflow-x: visible;
 `;
 
-const ModelDropdownPortalDiv = styled.div`
-  background-color: ${vscInputBackground};
-  position: relative;
-  margin-left: 8px;
-  z-index: 200;
-  font-size: ${getFontSize()};
-`;
-
-const ProfileDropdownPortalDiv = styled.div`
-  background-color: ${vscInputBackground};
-  position: relative;
-  margin-left: 8px;
-  z-index: 200;
-  font-size: ${getFontSize() - 2};
-`;
-
 const Layout = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const dispatch = useDispatch();
-  const ideMessenger = useContext(IdeMessengerContext);
+  const dispatch = useAppDispatch();
   const onboardingCard = useOnboardingCard();
   const { pathname } = useLocation();
+  const { saveSession, loadLastSession } = useHistory(dispatch);
 
-  const configError = useConfigError();
+  const configError = useAppSelector((state) => state.config.configError);
 
   const hasFatalErrors = useMemo(() => {
     return configError?.some((error) => error.fatal);
   }, [configError]);
 
-  const dialogMessage = useSelector(
-    (state: RootState) => state.uiState.dialogMessage,
-  );
-  const showDialog = useSelector(
-    (state: RootState) => state.uiState.showDialog,
-  );
+  const dialogMessage = useAppSelector((state) => state.ui.dialogMessage);
 
-  const timeline = useSelector((state: RootState) => state.state.history);
+  const showDialog = useAppSelector((state) => state.ui.showDialog);
 
-  useEffect(() => {
-    const handleKeyDown = (event: any) => {
-      if (isMetaEquivalentKeyPressed(event) && event.code === "KeyC") {
-        const selection = window.getSelection()?.toString();
-        if (selection) {
-          // Copy to clipboard
-          setTimeout(() => {
-            navigator.clipboard.writeText(selection);
-          }, 100);
-        }
+  useWebviewListener(
+    "openDialogMessage",
+    async (message) => {
+      if (message === "account") {
+        dispatch(setShowDialog(true));
+        dispatch(setDialogMessage(<AccountDialog />));
       }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [timeline]);
+    },
+    [],
+  );
 
   useWebviewListener(
     "addModel",
@@ -112,10 +85,6 @@ const Layout = () => {
     },
     [navigate],
   );
-
-  useWebviewListener("openSettings", async () => {
-    ideMessenger.post("openConfigJson", undefined);
-  });
 
   useWebviewListener(
     "viewHistory",
@@ -158,6 +127,12 @@ const Layout = () => {
   useWebviewListener(
     "updateApplyState",
     async (state) => {
+      // dispatch(
+      //   updateCurCheckpoint({
+      //     filepath: state.filepath,
+      //     content: state.fileContent,
+      //   }),
+      // );
       dispatch(updateApplyState(state));
     },
     [],
@@ -180,22 +155,70 @@ const Layout = () => {
   );
 
   useWebviewListener(
-    "startEditMode",
-    async (args) => {
-      dispatch(startEditMode(args));
-      navigate("/edit");
+    "focusEdit",
+    async () => {
+      await saveSession(false);
+      dispatch(newSession());
+      dispatch(focusEdit());
+      dispatch(setMode("edit"));
+    },
+    [],
+  );
+
+  useWebviewListener(
+    "focusEditWithoutClear",
+    async () => {
+      await saveSession(false);
+      dispatch(newSession());
+      dispatch(focusEdit());
+      dispatch(setMode("edit"));
+    },
+    [],
+  );
+
+  useWebviewListener(
+    "addCodeToEdit",
+    async (payload) => {
+      dispatch(addCodeToEdit(payload));
     },
     [navigate],
   );
 
-  useWebviewListener("setEditStatus", async ({ status, fileAfterEdit }) => {
-    dispatch(setEditStatus({ status, fileAfterEdit }));
-  });
+  useWebviewListener(
+    "setEditStatus",
+    async ({ status, fileAfterEdit }) => {
+      dispatch(setEditStatus({ status, fileAfterEdit }));
+    },
+    [],
+  );
 
   useWebviewListener("exitEditMode", async () => {
-    dispatch(setEditDone());
-    navigate("/");
+    loadLastSession().catch((e) =>
+      console.error(`Failed to load last session: ${e}`),
+    );
+
+    dispatch(exitEditMode());
   });
+
+  useEffect(() => {
+    const handleKeyDown = (event: any) => {
+      if (isMetaEquivalentKeyPressed(event) && event.code === "KeyC") {
+        const selection = window.getSelection()?.toString();
+        if (selection) {
+          // Copy to clipboard
+          setTimeout(() => {
+            navigator.clipboard.writeText(selection);
+          }, 100);
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
 
   useEffect(() => {
     if (
@@ -207,56 +230,55 @@ const Layout = () => {
   }, [location]);
 
   return (
-    <LastSessionProvider>
-      <LayoutTopDiv>
-        <div
-          style={{
-            scrollbarGutter: "stable both-edges",
-            minHeight: "100%",
-            display: "grid",
-            gridTemplateRows: "1fr auto",
-          }}
-        >
-          <TextDialog
-            showDialog={showDialog}
-            onEnter={() => {
-              dispatch(setShowDialog(false));
+    <AuthProvider>
+      <LastSessionProvider>
+        <LayoutTopDiv>
+          <div
+            style={{
+              scrollbarGutter: "stable both-edges",
+              minHeight: "100%",
+              display: "grid",
+              gridTemplateRows: "1fr auto",
             }}
-            onClose={() => {
-              dispatch(setShowDialog(false));
-            }}
-            message={dialogMessage}
+          >
+            <TextDialog
+              showDialog={showDialog}
+              onEnter={() => {
+                dispatch(setShowDialog(false));
+              }}
+              onClose={() => {
+                dispatch(setShowDialog(false));
+              }}
+              message={dialogMessage}
+            />
+
+            <GridDiv className="">
+              <PostHogPageView />
+              <Outlet />
+
+              {hasFatalErrors && pathname !== ROUTES.CONFIG_ERROR && (
+                <div
+                  className="z-50 cursor-pointer bg-red-600 p-4 text-center text-white"
+                  role="alert"
+                  onClick={() => navigate(ROUTES.CONFIG_ERROR)}
+                >
+                  <strong className="font-bold">Error!</strong>{" "}
+                  <span className="block sm:inline">
+                    Could not load config.json
+                  </span>
+                  <div className="mt-2 underline">Learn More</div>
+                </div>
+              )}
+              <Footer />
+            </GridDiv>
+          </div>
+          <div
+            style={{ fontSize: `${getFontSize() - 4}px` }}
+            id="tooltip-portal-div"
           />
-
-          <GridDiv className="">
-            <PostHogPageView />
-            <Outlet />
-
-            {hasFatalErrors && pathname !== ROUTES.CONFIG_ERROR && (
-              <div
-                className="z-50 cursor-pointer bg-red-600 p-4 text-center text-white"
-                role="alert"
-                onClick={() => navigate(ROUTES.CONFIG_ERROR)}
-              >
-                <strong className="font-bold">Error!</strong>{" "}
-                <span className="block sm:inline">
-                  Could not load config.json
-                </span>
-                <div className="mt-2 underline">Learn More</div>
-              </div>
-            )}
-
-            <ModelDropdownPortalDiv id="model-select-top-div"></ModelDropdownPortalDiv>
-            <ProfileDropdownPortalDiv id="profile-select-top-div"></ProfileDropdownPortalDiv>
-            <Footer />
-          </GridDiv>
-        </div>
-        <div
-          style={{ fontSize: `${getFontSize() - 4}px` }}
-          id="tooltip-portal-div"
-        />
-      </LayoutTopDiv>
-    </LastSessionProvider>
+        </LayoutTopDiv>
+      </LastSessionProvider>
+    </AuthProvider>
   );
 };
 

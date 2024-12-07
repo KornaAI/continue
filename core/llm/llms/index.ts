@@ -21,6 +21,7 @@ import Deepseek from "./Deepseek";
 import Fireworks from "./Fireworks";
 import Flowise from "./Flowise";
 import FreeTrial from "./FreeTrial";
+import FunctionNetwork from "./FunctionNetwork";
 import Gemini from "./Gemini";
 import Groq from "./Groq";
 import HuggingFaceInferenceAPI from "./HuggingFaceInferenceAPI";
@@ -30,7 +31,8 @@ import LlamaCpp from "./LlamaCpp";
 import Llamafile from "./Llamafile";
 import LMStudio from "./LMStudio";
 import Mistral from "./Mistral";
-import Mock from "./Mock";
+import MockLLM from "./Mock";
+import Moonshot from "./Moonshot";
 import Msty from "./Msty";
 import Nebius from "./Nebius";
 import Nvidia from "./Nvidia";
@@ -47,13 +49,17 @@ import VertexAI from "./VertexAI";
 import Vllm from "./Vllm";
 import WatsonX from "./WatsonX";
 import xAI from "./xAI";
+import SiliconFlow from "./SiliconFlow";
+import TestLLM from "./Test";
 
 const LLMs = [
   Anthropic,
   Cohere,
   FreeTrial,
+  FunctionNetwork,
   Gemini,
   Llamafile,
+  Moonshot,
   Ollama,
   Replicate,
   TextGenWebUI,
@@ -82,12 +88,14 @@ const LLMs = [
   Nvidia,
   Vllm,
   SambaNova,
-  Mock,
+  MockLLM,
+  TestLLM,
   Cerebras,
   Asksage,
   Nebius,
   VertexAI,
   xAI,
+  SiliconFlow,
 ];
 
 export async function llmFromDescription(

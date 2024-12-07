@@ -4,7 +4,7 @@ import path from "path";
 
 import Parser from "web-tree-sitter";
 import { Position } from "../../../..";
-import { testIde } from "../../../../test/util/fixtures";
+import { testIde } from "../../../../test/fixtures";
 import { getAst, getTreePathAtCursor } from "../../../util/ast";
 import { ImportDefinitionsService } from "../../ImportDefinitionsService";
 import { RootPathContextService } from "../RootPathContextService";
@@ -84,6 +84,7 @@ export async function testRootPathContext(
       index + 1,
       expect.any(String), // filepath argument
       position,
+      expect.any(String), // language argument
     );
   });
 }

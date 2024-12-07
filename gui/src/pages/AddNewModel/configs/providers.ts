@@ -116,6 +116,52 @@ export const providers: Partial<Record<ModelProvider, ProviderInfo>> = {
     ],
     apiKeyUrl: "https://console.anthropic.com/account/keys",
   },
+  moonshot: {
+    title: "Moonshot",
+    provider: "moonshot",
+    description: "Use the Moonshot API for LLMs",
+    longDescription: `[Visit our documentation](https://docs.continue.dev/reference/Model%20Providers/moonshot) for information on obtaining an API key.`,
+    icon: "moonshot.png",
+    tags: [ModelProviderTags.RequiresApiKey],
+    refPage: "moonshot",
+    apiKeyUrl: "https://docs.moonshot.cn/docs/getting-started",
+    packages: [models.moonshotChat],
+    collectInputFor: [
+      {
+        inputType: "text",
+        key: "apiKey",
+        label: "API Key",
+        placeholder: "Enter your Moonshot API key",
+        required: true,
+      },
+      ...completionParamsInputsConfigs,
+    ],
+  },
+  "function-network": {
+    title: "Function Network",
+    provider: "function-network",
+    refPage: "function-network",
+    description:
+      "Run open-source models on Function Network. Private, Affordable User-Owned AI",
+    icon: "function-network.png",
+    longDescription: `Function Network is a private, affordable user-owned AI platform that allows you to run open-source models. Experience bleeding-edge Generative AI models with limitless scalability, all powered by our distributed inference network.`,
+    tags: [ModelProviderTags.RequiresApiKey, ModelProviderTags.OpenSource],
+    params: {
+      apiKey: "",
+    },
+    collectInputFor: [
+      {
+        inputType: "text",
+        key: "apiKey",
+        label: "API Key",
+        placeholder: "Enter your Function Network API key",
+        required: true,
+      },
+      ...completionParamsInputsConfigs,
+    ],
+    packages: [models.llama31Chat, models.deepseek],
+    apiKeyUrl: "https://function.network/join-waitlist",
+  },
   azure: {
     title: "Azure OpenAI",
     provider: "azure",
@@ -761,5 +807,29 @@ To get started, [register](https://dataplatform.cloud.ibm.com/registration/stepo
       models.olmo7b,
     ],
     apiKeyUrl: "https://studio.nebius.ai/settings/api-keys",
+  },
+  siliconflow: {
+    title: "SiliconFlow",
+    provider: "siliconflow",
+    icon: "siliconflow.png",
+    description: "SiliconFlow provides cheap open-source models.",
+    longDescription:
+      "To get started with SiliconFlow, obtain an API key from their website [here](https://cloud.siliconflow.cn/account/ak).",
+    tags: [ModelProviderTags.RequiresApiKey, ModelProviderTags.OpenSource],
+    collectInputFor: [
+      {
+        inputType: "text",
+        key: "apiKey",
+        label: "API Key",
+        placeholder: "Enter your SiliconFlow API key",
+        required: true,
+      },
+    ],
+    packages: [
+      models.Qwen25Coder_7b,
+      models.Qwen25Coder_7b_pro,
+      models.Qwen25Coder_32b,
+    ],
+    apiKeyUrl: "https://cloud.siliconflow.cn/account/ak",
   },
 };

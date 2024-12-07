@@ -1,5 +1,6 @@
 package com.github.continuedev.continueintellijextension.toolWindow
 
+import com.github.continuedev.continueintellijextension.activities.ContinuePluginDisposable
 import com.github.continuedev.continueintellijextension.activities.showTutorial
 import com.github.continuedev.continueintellijextension.constants.MessageTypes
 import com.github.continuedev.continueintellijextension.constants.getConfigJsonPath
@@ -27,7 +28,6 @@ class ContinueBrowser(val project: Project, url: String) {
     private val heightChangeListeners = mutableListOf<(Int) -> Unit>()
 
     private val PASS_THROUGH_TO_CORE = listOf(
-        "update/modelChange",
         "ping",
         "abort",
         "history/list",
@@ -58,12 +58,14 @@ class ContinueBrowser(val project: Project, url: String) {
         "stats/getTokensPerModel",
         "index/setPaused",
         "index/forceReIndex",
+        "index/forceReIndexFiles",
         "index/indexingProgressBarInitialized",
         "completeOnboarding",
         "addAutocompleteModel",
         "config/listProfiles",
         "profiles/switch",
         "didChangeSelectedProfile",
+        "context/getSymbolsForFiles",
     )
 
     private fun registerAppSchemeHandler() {
@@ -88,7 +90,7 @@ class ContinueBrowser(val project: Project, url: String) {
 
         registerAppSchemeHandler()
         browser.loadURL(url);
-        Disposer.register(project, browser)
+        Disposer.register(ContinuePluginDisposable.getInstance(project), browser)
 
         // Listen for events sent from browser
         val myJSQueryOpenInBrowser = JBCefJSQuery.create((browser as JBCefBrowserBase?)!!)
@@ -135,7 +137,7 @@ class ContinueBrowser(val project: Project, url: String) {
                 }
 
                 "jetbrains/isOSREnabled" -> {
-                    sendToWebview( "jetbrains/isOSREnabled", isOSREnabled)
+                    respond(isOSREnabled)
                 }
 
                 "onLoad" -> {
@@ -190,9 +192,6 @@ class ContinueBrowser(val project: Project, url: String) {
                 }
 
                 "reloadWindow" -> {}
-                "openConfigJson" -> {
-                    ide?.setFileOpen(getConfigJsonPath())
-                }
 
                 "readRangeInFile" -> {
                     val data = data.asJsonObject
@@ -268,7 +267,9 @@ class ContinueBrowser(val project: Project, url: String) {
         val jsCode = buildJavaScript(jsonData)
 
         try {
-            this.browser.executeJavaScriptAsync(jsCode)
+            this.browser.executeJavaScriptAsync(jsCode).onError {
+                println("Failed to execute jsCode error: ${it.message}")
+            }
         } catch (error: IllegalStateException) {
             println("Webview not initialized yet $error")
         }

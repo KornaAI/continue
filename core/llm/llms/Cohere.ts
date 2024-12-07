@@ -4,7 +4,7 @@ import {
   LLMOptions,
   ModelProvider,
 } from "../../index.js";
-import { stripImages } from "../images.js";
+import { renderChatMessage } from "../../util/messageContent.js";
 import { BaseLLM } from "../index.js";
 import { streamJSON } from "../stream.js";
 
@@ -46,16 +46,18 @@ class Cohere extends BaseLLM {
 
   protected async *_streamComplete(
     prompt: string,
+    signal: AbortSignal,
     options: CompletionOptions,
   ): AsyncGenerator<string> {
     const messages = [{ role: "user" as const, content: prompt }];
-    for await (const update of this._streamChat(messages, options)) {
-      yield stripImages(update.content);
+    for await (const update of this._streamChat(messages, signal, options)) {
+      yield renderChatMessage(update);
     }
   }
 
   protected async *_streamChat(
     messages: ChatMessage[],
+    signal: AbortSignal,
     options: CompletionOptions,
   ): AsyncGenerator<ChatMessage> {
     const headers = {
@@ -73,6 +75,7 @@ class Cohere extends BaseLLM {
         chat_history: this._convertMessages(messages),
         preamble: this.systemMessage,
       }),
+      signal,
     });
 
     if (options.stream === false) {

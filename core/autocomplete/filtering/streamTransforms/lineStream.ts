@@ -2,6 +2,7 @@ import { distance } from "fastest-levenshtein";
 
 import { DiffLine } from "../../..";
 import { LineStream } from "../../../diff/util";
+import { BRACKETS, BRACKETS_REVERSE } from "../BracketMatchingService";
 
 export type LineFilter = (args: {
   lines: LineStream;
@@ -82,6 +83,7 @@ export const LINES_TO_REMOVE_BEFORE_START = [
   "<COMPLETION>",
   "[CODE]",
   "<START EDITING HERE>",
+  "{{FILL_HERE}}",
 ];
 
 export const ENGLISH_START_PHRASES = [
@@ -535,13 +537,32 @@ export async function* showWhateverWeHaveAtXMs(
   ms: number,
 ): LineStream {
   const startTime = Date.now();
+  let firstNonWhitespaceLineYielded = false;
+
   for await (const line of lines) {
-    // Always get at least one line
     yield line;
 
-    // But after that, soft break at X ms
-    if (Date.now() - startTime > ms) {
+    if (!firstNonWhitespaceLineYielded && line.trim() !== "") {
+      firstNonWhitespaceLineYielded = true;
+    }
+
+    const isTakingTooLong = Date.now() - startTime > ms;
+    if (isTakingTooLong && firstNonWhitespaceLineYielded) {
       break;
     }
+  }
+}
+
+export async function* noDoubleNewLine(lines: LineStream): LineStream {
+  let isFirstLine = true;
+
+  for await (const line of lines) {
+    if (line.trim() === "" && !isFirstLine) {
+      return;
+    }
+
+    isFirstLine = false;
+
+    yield line;
   }
 }

@@ -6,7 +6,7 @@ import {
   LLMOptions,
   ModelProvider,
 } from "../../index.js";
-import { stripImages } from "../images.js";
+import { renderChatMessage } from "../../util/messageContent.js";
 import { BaseLLM } from "../index.js";
 
 interface IFlowiseApiOptions {
@@ -121,16 +121,18 @@ class Flowise extends BaseLLM {
 
   protected async *_streamComplete(
     prompt: string,
+    signal: AbortSignal,
     options: CompletionOptions,
   ): AsyncGenerator<string> {
     const message: ChatMessage = { role: "user", content: prompt };
-    for await (const chunk of this._streamChat([message], options)) {
-      yield stripImages(chunk.content);
+    for await (const chunk of this._streamChat([message], signal, options)) {
+      yield renderChatMessage(chunk);
     }
   }
 
   protected async *_streamChat(
     messages: ChatMessage[],
+    signal: AbortSignal,
     options: CompletionOptions,
   ): AsyncGenerator<ChatMessage> {
     const requestBody = this._getRequestBody(messages, options);
@@ -139,6 +141,7 @@ class Flowise extends BaseLLM {
       method: "POST",
       headers: this._getHeaders(),
       body: JSON.stringify({ ...requestBody, socketIOClientId: socket.id }),
+      signal,
     }).then((res) => res.json());
 
     while (await socketInfo.hasNextToken()) {

@@ -49,7 +49,7 @@ const PROVIDER_HANDLES_TEMPLATING: ModelProvider[] = [
   "mistral",
   "sambanova",
   "vertexai",
-  "watsonx"
+  "watsonx",
 ];
 
 const PROVIDER_SUPPORTS_IMAGES: ModelProvider[] = [
@@ -63,7 +63,8 @@ const PROVIDER_SUPPORTS_IMAGES: ModelProvider[] = [
   "sagemaker",
   "continue-proxy",
   "openrouter",
-  "vertexai"
+  "vertexai",
+  "azure",
 ];
 
 const MODEL_SUPPORTS_IMAGES: string[] = [
@@ -82,6 +83,13 @@ const MODEL_SUPPORTS_IMAGES: string[] = [
   "pixtral",
   "llama3.2",
 ];
+
+function modelSupportsTools(modelName: string) {
+  return (
+    modelName.includes("claude") &&
+    (modelName.includes("3-5") || modelName.includes("3.5"))
+  );
+}
 
 function modelSupportsImages(
   provider: ModelProvider,
@@ -116,12 +124,14 @@ const PARALLEL_PROVIDERS: ModelProvider[] = [
   "huggingface-inference-api",
   "huggingface-tgi",
   "mistral",
+  "moonshot",
   "free-trial",
   "replicate",
   "together",
   "sambanova",
   "nebius",
-  "vertexai"
+  "vertexai",
+  "function-network",
 ];
 
 function llmCanGenerateInParallel(
@@ -148,12 +158,12 @@ function autodetectTemplateType(model: string): TemplateType | undefined {
     lower.includes("chat-bison") ||
     lower.includes("pplx") ||
     lower.includes("gemini") ||
-    lower.includes("grok")
+    lower.includes("grok") ||
+    lower.includes("moonshot")
   ) {
     return undefined;
   }
-
-  if (lower.includes("llama3")) {
+  if (lower.includes("llama3") || lower.includes("llama-3")) {
     return "llama3";
   }
 
@@ -351,4 +361,5 @@ export {
   autodetectTemplateType,
   llmCanGenerateInParallel,
   modelSupportsImages,
+  modelSupportsTools,
 };
