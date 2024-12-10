@@ -1,8 +1,7 @@
-import { IDE } from "../..";
-import { RangeInFileWithContents } from "../../commands/util";
+import { IDE, RangeInFileWithContents } from "../..";
 import { PrecalculatedLruCache } from "../../util/LruCache";
 import {
-  TSQueryType,
+  getFullLanguageName,
   getParserForFile,
   getQueryForFile,
 } from "../../util/treeSitter";
@@ -30,14 +29,23 @@ export class ImportDefinitionsService {
     return this.cache.get(filepath);
   }
 
-  private async _getFileInfo(filepath: string): Promise<FileInfo> {
+  private async _getFileInfo(filepath: string): Promise<FileInfo | null> {
     const parser = await getParserForFile(filepath);
     if (!parser) {
       return {
         imports: {},
       };
     }
-    const ast = parser.parse(await this.ide.readFile(filepath), undefined, {
+
+    let fileContents: string | undefined = undefined;
+    try {
+      fileContents = await this.ide.readFile(filepath);
+    } catch (err) {
+      // File removed
+      return null;
+    }
+
+    const ast = parser.parse(fileContents, undefined, {
       includedRanges: [
         {
           startIndex: 0,
@@ -47,7 +55,11 @@ export class ImportDefinitionsService {
         },
       ],
     });
-    const query = await getQueryForFile(filepath, TSQueryType.Imports);
+    const language = getFullLanguageName(filepath);
+    const query = await getQueryForFile(
+      filepath,
+      `import-queries/${language}.scm`,
+    );
     if (!query) {
       return {
         imports: {},

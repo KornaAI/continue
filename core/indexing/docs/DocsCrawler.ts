@@ -79,7 +79,7 @@ class DocsCrawler {
           );
 
         if (didInstall) {
-          await this.ide.showToast(
+          void this.ide.showToast(
             "info",
             `Successfully installed Chromium! Retrying crawl of: ${startUrl.toString()}`,
           );
@@ -95,6 +95,6 @@ export default DocsCrawler;
 export {
   CheerioCrawler,
   ChromiumCrawler,
-  ChromiumInstaller as ChromiumInstaller,
+  ChromiumInstaller,
   GitHubCrawler,
 };
