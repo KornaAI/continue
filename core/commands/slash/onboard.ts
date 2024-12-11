@@ -9,7 +9,7 @@ import {
   defaultIgnoreFile,
   gitIgArrayFromFile,
 } from "../../indexing/ignore";
-import { stripImages } from "../../llm/images";
+import { renderChatMessage } from "../../util/messageContent";
 
 const LANGUAGE_DEP_MGMT_FILENAMES = [
   "package.json", // JavaScript (Node.js)
@@ -45,10 +45,11 @@ const OnboardSlashCommand: SlashCommand = {
     const context = await gatherProjectContext(workspaceDir, ide);
     const prompt = createOnboardingPrompt(context);
 
-    for await (const chunk of llm.streamChat([
-      { role: "user", content: prompt },
-    ])) {
-      yield stripImages(chunk.content);
+    for await (const chunk of llm.streamChat(
+      [{ role: "user", content: prompt }],
+      new AbortController().signal,
+    )) {
+      yield renderChatMessage(chunk);
     }
   },
 };
@@ -134,7 +135,7 @@ function createOnboardingPrompt(context: string): string {
     Your response should be structured, clear, and focused on giving the new developer both a detailed understanding of individual components and a high-level overview of the project as a whole.
 
     Here is an example of a valid response:
-    
+
     ## Important folders
 
     ### /folder1

@@ -1,4 +1,3 @@
-import { ModelProvider } from "core";
 import { HTMLInputTypeAttribute } from "react";
 import { ModelProviderTags } from "../../../components/modelSelection/utils";
 import { FREE_TRIAL_LIMIT_REQUESTS } from "../../../util/freeTrial";
@@ -24,7 +23,7 @@ export interface InputDescriptor {
 export interface ProviderInfo {
   title: string;
   icon?: string;
-  provider: ModelProvider;
+  provider: string;
   description: string;
   longDescription?: string;
   tags?: ModelProviderTags[];
@@ -50,7 +49,7 @@ export const apiBaseInput: InputDescriptor = {
   required: false,
 };
 
-export const providers: Partial<Record<ModelProvider, ProviderInfo>> = {
+export const providers: Partial<Record<string, ProviderInfo>> = {
   openai: {
     title: "OpenAI",
     provider: "openai",
@@ -115,6 +114,52 @@ export const providers: Partial<Record<ModelProvider, ProviderInfo>> = {
       models.claude3Haiku,
     ],
     apiKeyUrl: "https://console.anthropic.com/account/keys",
+  },
+  moonshot: {
+    title: "Moonshot",
+    provider: "moonshot",
+    description: "Use the Moonshot API for LLMs",
+    longDescription: `[Visit our documentation](https://docs.continue.dev/reference/Model%20Providers/moonshot) for information on obtaining an API key.`,
+    icon: "moonshot.png",
+    tags: [ModelProviderTags.RequiresApiKey],
+    refPage: "moonshot",
+    apiKeyUrl: "https://docs.moonshot.cn/docs/getting-started",
+    packages: [models.moonshotChat],
+    collectInputFor: [
+      {
+        inputType: "text",
+        key: "apiKey",
+        label: "API Key",
+        placeholder: "Enter your Moonshot API key",
+        required: true,
+      },
+      ...completionParamsInputsConfigs,
+    ],
+  },
+  "function-network": {
+    title: "Function Network",
+    provider: "function-network",
+    refPage: "function-network",
+    description:
+      "Run open-source models on Function Network. Private, Affordable User-Owned AI",
+    icon: "function-network.png",
+    longDescription: `Function Network is a private, affordable user-owned AI platform that allows you to run open-source models. Experience bleeding-edge Generative AI models with limitless scalability, all powered by our distributed inference network.`,
+    tags: [ModelProviderTags.RequiresApiKey, ModelProviderTags.OpenSource],
+    params: {
+      apiKey: "",
+    },
+    collectInputFor: [
+      {
+        inputType: "text",
+        key: "apiKey",
+        label: "API Key",
+        placeholder: "Enter your Function Network API key",
+        required: true,
+      },
+      ...completionParamsInputsConfigs,
+    ],
+    packages: [models.llama31Chat, models.deepseek],
+    apiKeyUrl: "https://function.network/join-waitlist",
   },
   azure: {
     title: "Azure OpenAI",
@@ -267,7 +312,6 @@ Select the \`GPT-4o\` model below to complete your provider configuration, but n
       models.llama3170bChat,
       models.llama318bChat,
       { ...models.mixtralTrial, title: "Mixtral" },
-      models.llama270bChat,
       {
         ...models.AUTODETECT,
         params: {
@@ -761,5 +805,30 @@ To get started, [register](https://dataplatform.cloud.ibm.com/registration/stepo
       models.olmo7b,
     ],
     apiKeyUrl: "https://studio.nebius.ai/settings/api-keys",
+  },
+  siliconflow: {
+    title: "SiliconFlow",
+    provider: "siliconflow",
+    icon: "siliconflow.png",
+    description: "SiliconFlow provides cheap open-source models.",
+    longDescription:
+      "To get started with SiliconFlow, obtain an API key from their website [here](https://cloud.siliconflow.cn/account/ak).",
+    tags: [ModelProviderTags.RequiresApiKey, ModelProviderTags.OpenSource],
+    collectInputFor: [
+      {
+        inputType: "text",
+        key: "apiKey",
+        label: "API Key",
+        placeholder: "Enter your SiliconFlow API key",
+        required: true,
+      },
+    ],
+    packages: [
+      models.QwenQwQ_32b_preview,
+      models.Qwen25Coder_32b,
+      models.Hunyuan_a52b,
+      models.Llama31Nemotron_70b,
+    ],
+    apiKeyUrl: "https://cloud.siliconflow.cn/account/ak",
   },
 };

@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import * as os from "os";
+import { pathToFileURL } from "url";
 import * as path from "path";
-
 import * as JSONC from "comment-json";
 import dotenv from "dotenv";
 
@@ -13,6 +13,10 @@ dotenv.config();
 
 const CONTINUE_GLOBAL_DIR =
   process.env.CONTINUE_GLOBAL_DIR ?? path.join(os.homedir(), ".continue");
+
+// export const DEFAULT_CONFIG_TS_CONTENTS = `import { Config } from "./types"\n\nexport function modifyConfig(config: Config): Config {
+//   return config;
+// }`;
 
 export const DEFAULT_CONFIG_TS_CONTENTS = `export function modifyConfig(config: Config): Config {
   return config;
@@ -41,6 +45,9 @@ export function getGlobalContinueIgnorePath(): string {
   return continueIgnorePath;
 }
 
+/*
+  Deprecated, replace with getContinueGlobalUri where possible
+*/
 export function getContinueGlobalPath(): string {
   // This is ~/.continue on mac/linux
   const continuePath = CONTINUE_GLOBAL_DIR;
@@ -48,6 +55,10 @@ export function getContinueGlobalPath(): string {
     fs.mkdirSync(continuePath);
   }
   return continuePath;
+}
+
+export function getContinueGlobalUri(): string {
+  return pathToFileURL(CONTINUE_GLOBAL_DIR).href;
 }
 
 export function getSessionsFolderPath(): string {
