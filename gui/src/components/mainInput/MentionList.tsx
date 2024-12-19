@@ -37,10 +37,7 @@ import {
   vscQuickInputBackground,
 } from "..";
 import { IdeMessengerContext } from "../../context/IdeMessenger";
-import {
-  setDialogMessage,
-  setShowDialog,
-} from "../../redux/slices/uiStateSlice";
+import { setDialogMessage, setShowDialog } from "../../redux/slices/uiSlice";
 import HeaderButtonWithToolTip from "../gui/HeaderButtonWithToolTip";
 import FileIcon from "../FileIcon";
 import SafeImg from "../SafeImg";
@@ -215,7 +212,7 @@ const MentionList = forwardRef((props: MentionListProps, ref) => {
         title: "New .prompt file",
         type: "action",
         action: () => {
-          ideMessenger.request("config/newPromptFile", undefined);
+          ideMessenger.post("config/newPromptFile", undefined);
           const { tr } = props.editor.view.state;
           const text = tr.doc.textBetween(0, tr.selection.from);
           const start = text.lastIndexOf("@");
@@ -382,7 +379,6 @@ const MentionList = forwardRef((props: MentionListProps, ref) => {
       ) : (
         <>
           {subMenuTitle && <ItemDiv className="mb-2">{subMenuTitle}</ItemDiv>}
-          {/* <CustomScrollbarDiv className="overflow-y-scroll max-h-96"> */}
           {allItems.length ? (
             allItems.map((item, index) => (
               <ItemDiv
@@ -402,7 +398,7 @@ const MentionList = forwardRef((props: MentionListProps, ref) => {
                         height="20px"
                         width="20px"
                         filename={item.description}
-                      ></FileIcon>
+                      />
                     )}
                     {!showFileIconForItem(item) && (
                       <>
@@ -414,7 +410,7 @@ const MentionList = forwardRef((props: MentionListProps, ref) => {
                   </div>
                   <span
                     style={{
-                      color: vscListActiveForeground,
+                      color: lightGray,
                       float: "right",
                       textAlign: "right",
                       opacity: index !== selectedIndex ? 0 : 1,
