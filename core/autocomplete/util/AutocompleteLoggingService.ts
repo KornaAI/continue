@@ -1,6 +1,7 @@
 import { logDevData } from "../../util/devdata";
 import { COUNT_COMPLETION_REJECTED_AFTER } from "../../util/parameters";
 import { Telemetry } from "../../util/posthog";
+import { getUriFileExtension } from "../../util/uri";
 
 import { AutocompleteOutcome } from "./types";
 
@@ -37,6 +38,7 @@ export class AutocompleteLoggingService {
 
     if (this._outcomes.has(completionId)) {
       const outcome = this._outcomes.get(completionId)!;
+      outcome.accepted = true;
       this.logAutocompleteOutcome(outcome);
       this._outcomes.delete(completionId);
       return outcome;
@@ -94,7 +96,6 @@ export class AutocompleteLoggingService {
   }
 
   private logAutocompleteOutcome(outcome: AutocompleteOutcome) {
-    outcome.accepted = true;
     logDevData("autocomplete", outcome);
     const { prompt, completion, prefix, suffix, ...restOfOutcome } = outcome;
     void Telemetry.capture(
@@ -105,14 +106,13 @@ export class AutocompleteLoggingService {
         completionId: restOfOutcome.completionId,
         completionOptions: restOfOutcome.completionOptions,
         debounceDelay: restOfOutcome.debounceDelay,
-        fileExtension: restOfOutcome.filepath.split(".")?.slice(-1)[0],
+        fileExtension: getUriFileExtension(restOfOutcome.filepath),
         maxPromptTokens: restOfOutcome.maxPromptTokens,
         modelName: restOfOutcome.modelName,
         modelProvider: restOfOutcome.modelProvider,
         multilineCompletions: restOfOutcome.multilineCompletions,
         time: restOfOutcome.time,
         useRecentlyEdited: restOfOutcome.useRecentlyEdited,
-        useRootPathContext: restOfOutcome.useRootPathContext,
       },
       true,
     );

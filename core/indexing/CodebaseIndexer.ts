@@ -17,6 +17,7 @@ import {
   RefreshIndexResults,
 } from "./types.js";
 import { walkDirAsync } from "./walkDir.js";
+import { findUriInDirs, getUriPathBasename } from "../util/uri.js";
 
 export class PauseToken {
   constructor(private _paused: boolean) {}
@@ -75,19 +76,15 @@ export class CodebaseIndexer {
 
   protected async getIndexesToBuild(): Promise<CodebaseIndex[]> {
     const config = await this.configHandler.loadConfig();
-    const pathSep = await this.ide.pathSep();
-
     const indexes = [
       new ChunkCodebaseIndex(
         this.ide.readFile.bind(this.ide),
-        pathSep,
         this.continueServerClient,
-        config.embeddingsProvider.maxChunkSize,
+        config.embeddingsProvider.maxEmbeddingChunkSize,
       ), // Chunking must come first
       new LanceDbIndex(
         config.embeddingsProvider,
         this.ide.readFile.bind(this.ide),
-        pathSep,
         this.continueServerClient,
       ),
       new FullTextSearchCodebaseIndex(),
@@ -97,23 +94,26 @@ export class CodebaseIndexer {
     return indexes;
   }
 
-  public async refreshFile(file: string): Promise<void> {
+  public async refreshFile(
+    file: string,
+    workspaceDirs: string[],
+  ): Promise<void> {
     if (this.pauseToken.paused) {
       // NOTE: by returning here, there is a chance that while paused a file is modified and
       // then after unpausing the file is not reindexed
       return;
     }
-    const workspaceDir = await this.getWorkspaceDir(file);
-    if (!workspaceDir) {
+    const { foundInDir } = findUriInDirs(file, workspaceDirs);
+    if (!foundInDir) {
       return;
     }
-    const branch = await this.ide.getBranch(workspaceDir);
-    const repoName = await this.ide.getRepoName(workspaceDir);
+    const branch = await this.ide.getBranch(foundInDir);
+    const repoName = await this.ide.getRepoName(foundInDir);
     const indexesToBuild = await this.getIndexesToBuild();
     const stats = await this.ide.getLastModified([file]);
     for (const index of indexesToBuild) {
       const tag = {
-        directory: workspaceDir,
+        directory: foundInDir,
         branch,
         artifactId: index.artifactId,
       };
@@ -144,17 +144,56 @@ export class CodebaseIndexer {
     }
   }
 
-  async *refresh(
-    workspaceDirs: string[],
+  async *refreshFiles(files: string[]): AsyncGenerator<IndexingProgressUpdate> {
+    let progress = 0;
+    if (files.length === 0) {
+      yield {
+        progress: 1,
+        desc: "Indexing Complete",
+        status: "done",
+      };
+    }
+
+    const workspaceDirs = await this.ide.getWorkspaceDirs();
+
+    const progressPer = 1 / files.length;
+    try {
+      for (const file of files) {
+        yield {
+          progress,
+          desc: `Indexing file ${file}...`,
+          status: "indexing",
+        };
+        await this.refreshFile(file, workspaceDirs);
+
+        progress += progressPer;
+
+        if (this.pauseToken.paused) {
+          yield* this.yieldUpdateAndPause();
+        }
+      }
+
+      yield {
+        progress: 1,
+        desc: "Indexing Complete",
+        status: "done",
+      };
+    } catch (err) {
+      yield this.handleErrorAndGetProgressUpdate(err);
+    }
+  }
+
+  async *refreshDirs(
+    dirs: string[],
     abortSignal: AbortSignal,
   ): AsyncGenerator<IndexingProgressUpdate> {
     let progress = 0;
 
-    if (workspaceDirs.length === 0) {
+    if (dirs.length === 0) {
       yield {
-        progress,
+        progress: 1,
         desc: "Nothing to index",
-        status: "disabled",
+        status: "done",
       };
       return;
     }
@@ -175,11 +214,9 @@ export class CodebaseIndexer {
       };
     }
 
-    let completedDirs = 0;
-
     // Wait until Git Extension has loaded to report progress
     // so we don't appear stuck at 0% while waiting
-    await this.ide.getRepoName(workspaceDirs[0]);
+    await this.ide.getRepoName(dirs[0]);
 
     yield {
       progress,
@@ -188,21 +225,21 @@ export class CodebaseIndexer {
     };
     const beginTime = Date.now();
 
-    for (const directory of workspaceDirs) {
-      const dirBasename = await this.basename(directory);
+    for (const directory of dirs) {
+      const dirBasename = getUriPathBasename(directory);
       yield {
         progress,
         desc: `Discovering files in ${dirBasename}...`,
         status: "indexing",
       };
-      const workspaceFiles = [];
+      const directoryFiles = [];
       for await (const p of walkDirAsync(directory, this.ide)) {
-        workspaceFiles.push(p);
+        directoryFiles.push(p);
         if (abortSignal.aborted) {
           yield {
-            progress: 1,
+            progress: 0,
             desc: "Indexing cancelled",
-            status: "disabled",
+            status: "cancelled",
           };
           return;
         }
@@ -218,16 +255,16 @@ export class CodebaseIndexer {
       try {
         for await (const updateDesc of this.indexFiles(
           directory,
-          workspaceFiles,
+          directoryFiles,
           branch,
           repoName,
         )) {
           // Handle pausing in this loop because it's the only one really taking time
           if (abortSignal.aborted) {
             yield {
-              progress: 1,
+              progress: 0,
               desc: "Indexing cancelled",
-              status: "disabled",
+              status: "cancelled",
             };
             return;
           }
@@ -240,7 +277,7 @@ export class CodebaseIndexer {
             nextLogThreshold += 0.025;
             this.logProgress(
               beginTime,
-              Math.floor(workspaceFiles.length * updateDesc.progress),
+              Math.floor(directoryFiles.length * updateDesc.progress),
               updateDesc.progress,
             );
           }
@@ -347,18 +384,18 @@ export class CodebaseIndexer {
   }
 
   private async *indexFiles(
-    workspaceDir: string,
-    workspaceFiles: string[],
+    directory: string,
+    files: string[],
     branch: string,
     repoName: string | undefined,
   ): AsyncGenerator<IndexingProgressUpdate> {
-    const stats = await this.ide.getLastModified(workspaceFiles);
+    const stats = await this.ide.getLastModified(files);
     const indexesToBuild = await this.getIndexesToBuild();
     let completedIndexCount = 0;
     let progress = 0;
     for (const codebaseIndex of indexesToBuild) {
       const tag: IndexTag = {
-        directory: workspaceDir,
+        directory,
         branch,
         artifactId: codebaseIndex.artifactId,
       };
@@ -410,21 +447,5 @@ export class CodebaseIndexer {
       await markComplete(lastUpdated, IndexResultType.UpdateLastUpdated);
       completedIndexCount += 1;
     }
-  }
-
-  private async getWorkspaceDir(filepath: string): Promise<string | undefined> {
-    const workspaceDirs = await this.ide.getWorkspaceDirs();
-    for (const workspaceDir of workspaceDirs) {
-      if (filepath.startsWith(workspaceDir)) {
-        return workspaceDir;
-      }
-    }
-    return undefined;
-  }
-
-  private async basename(filepath: string): Promise<string> {
-    const pathSep = await this.ide.pathSep();
-    const path = filepath.split(pathSep);
-    return path[path.length - 1];
   }
 }

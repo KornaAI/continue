@@ -4,9 +4,10 @@ import {
 } from "./coreWebview.js";
 
 // Message types to pass through from webview to core
+// Note: If updating these values, make a corresponding update in
+// extensions/intellij/src/main/kotlin/com/github/continuedev/continueintellijextension/toolWindow/ContinueBrowser.kt
 export const WEBVIEW_TO_CORE_PASS_THROUGH: (keyof ToCoreFromWebviewProtocol)[] =
   [
-    "update/modelChange",
     "ping",
     "abort",
     "history/list",
@@ -14,14 +15,15 @@ export const WEBVIEW_TO_CORE_PASS_THROUGH: (keyof ToCoreFromWebviewProtocol)[] =
     "history/load",
     "history/save",
     "devdata/log",
-    "config/addOpenAiKey",
     "config/addModel",
     "config/newPromptFile",
     "config/ideSettingsUpdate",
     "config/getSerializedProfileInfo",
     "config/deleteModel",
-    "config/reload",
+    "config/listProfiles",
+    "config/openProfile",
     "context/getContextItems",
+    "context/getSymbolsForFiles",
     "context/loadSubmenuItems",
     "context/addDocs",
     "context/removeDocs",
@@ -39,14 +41,22 @@ export const WEBVIEW_TO_CORE_PASS_THROUGH: (keyof ToCoreFromWebviewProtocol)[] =
     "chatDescriber/describe",
     "stats/getTokensPerDay",
     "stats/getTokensPerModel",
+    // Codebase
     "index/setPaused",
     "index/forceReIndex",
     "index/indexingProgressBarInitialized",
+    // Docs, etc.
+    "indexing/reindex",
+    "indexing/abort",
+    "indexing/setPaused",
+    "docs/getSuggestedDocs",
+    "docs/initStatuses",
+    //
     "completeOnboarding",
     "addAutocompleteModel",
-    "config/listProfiles",
     "profiles/switch",
     "didChangeSelectedProfile",
+    "tools/call",
   ];
 
 // Message types to pass through from core to webview
@@ -54,11 +64,16 @@ export const CORE_TO_WEBVIEW_PASS_THROUGH: (keyof ToWebviewFromCoreProtocol)[] =
   [
     "configUpdate",
     "getDefaultModelTitle",
-    "indexProgress",
+    "indexProgress", // Codebase
+    "indexing/statusUpdate", // Docs, etc.
     "addContextItem",
     "refreshSubmenuItems",
     "isContinueInputFocused",
     "didChangeAvailableProfiles",
     "setTTSActive",
-    "getWebviewHistoryLength"
+    "getWebviewHistoryLength",
+    "getCurrentSessionId",
+    "signInToControlPlane",
+    "openDialogMessage",
+    "docs/suggestions",
   ];
